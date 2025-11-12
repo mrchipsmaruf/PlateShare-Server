@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -40,6 +40,23 @@ async function run() {
             } catch (error) {
                 console.error('Error fetching foods:', error);
                 res.status(500).json({ message: 'Error fetching foods' });
+            }
+        });
+
+        app.get('/foods/:id', async (req, res) => {
+            try {
+                const { id } = req.params;
+                const query = { _id: new ObjectId(id) };
+                const result = await foodsCollection.findOne(query);
+
+                if (!result) {
+                    return res.status(404).json({ message: 'Food not found' });
+                }
+
+                res.status(200).json(result);
+            } catch (error) {
+                console.error('Error fetching food by ID:', error);
+                res.status(500).json({ message: 'Error fetching food by ID' });
             }
         });
 
