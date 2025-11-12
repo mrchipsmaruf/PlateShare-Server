@@ -60,6 +60,16 @@ async function run() {
             }
         });
 
+        app.put("/foods/:id", async (req, res) => {
+            const id = req.params.id;
+            const updatedData = req.body;
+            const result = await foodsCollection.updateOne(
+                { _id: new ObjectId(id) },
+                { $set: updatedData }
+            );
+            res.send(result);
+        });
+
         app.get('/featured-foods', async (req, res) => {
             try {
                 const foods = await foodsCollection.find().toArray();
