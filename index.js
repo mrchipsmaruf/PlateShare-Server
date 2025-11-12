@@ -43,6 +43,21 @@ async function run() {
             }
         });
 
+        app.get('/my-foods', async (req, res) => {
+            try {
+                const email = req.query.email;
+                if (!email) {
+                    return res.status(400).json({ message: 'Missing email query parameter' });
+                }
+
+                const result = await foodsCollection.find({ donator_email: email }).toArray();
+                res.status(200).json(result);
+            } catch (error) {
+                console.error('Error fetching user foods:', error);
+                res.status(500).json({ message: 'Error fetching user foods' });
+            }
+        });
+
         app.get('/foods/:id', async (req, res) => {
             try {
                 const { id } = req.params;
@@ -57,40 +72,6 @@ async function run() {
             } catch (error) {
                 console.error('Error fetching food by ID:', error);
                 res.status(500).json({ message: 'Error fetching food by ID' });
-            }
-        });
-
-        app.put("/foods/:id", async (req, res) => {
-            const id = req.params.id;
-            const updatedData = req.body;
-            const result = await foodsCollection.updateOne(
-                { _id: new ObjectId(id) },
-                { $set: updatedData }
-            );
-            res.send(result);
-        });
-
-        app.delete("/foods/:id", async (req, res) => {
-            const id = req.params.id;
-            const result = await foodsCollection.deleteOne({ _id: new ObjectId(id) });
-            res.send(result);
-        });
-
-        app.get('/featured-foods', async (req, res) => {
-            try {
-                const foods = await foodsCollection.find().toArray();
-                const featuredFoods = foods
-                    .map(food => ({
-                        ...food,
-                        serves: parseInt(food.food_quantity.match(/\d+/)?.[0] || 0),
-                    }))
-                    .sort((a, b) => b.serves - a.serves)
-                    .slice(0, 6);
-
-                res.status(200).json(featuredFoods);
-            } catch (error) {
-                console.error('Error fetching featured foods:', error);
-                res.status(500).json({ message: 'Error fetching featured foods' });
             }
         });
 
@@ -110,6 +91,65 @@ async function run() {
             } catch (error) {
                 console.error('Error adding food:', error);
                 res.status(500).json({ message: 'Error adding food' });
+            }
+        });
+
+        app.put("/foods/:id", async (req, res) => {
+            try {
+                const id = req.params.id;
+                const updatedData = req.body;
+
+                const result = await foodsCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $set: updatedData }
+                );
+
+                if (result.matchedCount === 0) {
+                    return res.status(404).json({ success: false, message: "Food not found" });
+                }
+
+                if (result.modifiedCount === 0) {
+                    return res.status(200).json({ success: true, message: "No changes made" });
+                }
+
+                res.status(200).json({ success: true, message: "Food updated successfully" });
+            } catch (error) {
+                console.error("Error updating food:", error);
+                res.status(500).json({ success: false, message: "Error updating food" });
+            }
+        });
+
+        app.delete("/foods/:id", async (req, res) => {
+            try {
+                const id = req.params.id;
+                const result = await foodsCollection.deleteOne({ _id: new ObjectId(id) });
+
+                if (result.deletedCount === 0) {
+                    return res.status(404).json({ success: false, message: "Food not found" });
+                }
+
+                res.status(200).json({ success: true, message: "Food deleted successfully" });
+            } catch (error) {
+                console.error("Error deleting food:", error);
+                res.status(500).json({ success: false, message: "Error deleting food" });
+            }
+        });
+
+        app.get('/featured-foods', async (req, res) => {
+            try {
+                const foods = await foodsCollection.find().toArray();
+                const featuredFoods = foods
+                    .map(food => ({
+                        ...food,
+                        serves: parseInt(food.food_quantity.match(/\d+/)?.[0] || 0),
+                    }))
+                    .sort((a, b) => b.serves - a.serves)
+                    .slice(0, 6);
+
+                res.status(200).json(featuredFoods);
+            } catch (error) {
+                console.error('Error fetching featured foods:', error);
+                res.status(500).json({ message: 'Error fetching featured foods' });
             }
         });
 
