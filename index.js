@@ -133,7 +133,7 @@ async function run() {
         app.get('/food-requests', async (req, res) => {
             try {
                 const email = req.query.email;
-                const query = email ? { requester_email: email } : {};
+                const query = email ? { requesterEmail: email } : {};
                 const requests = await foodRequestsCollection.find(query).toArray();
                 res.json(requests);
             } catch (error) {
@@ -151,7 +151,6 @@ async function run() {
                     return res.status(400).json({ success: false, message: "Invalid request ID format" });
                 }
 
-                // Update request status
                 const request = await foodRequestsCollection.findOne({ _id: new ObjectId(id) });
                 if (!request) {
                     return res.status(404).json({ success: false, message: "Request not found" });
@@ -165,7 +164,12 @@ async function run() {
                 if (status === "accepted") {
                     await foodsCollection.updateOne(
                         { _id: new ObjectId(request.foodId) },
-                        { $set: { food_status: "donated" } }
+                        { $set: { food_status: "Donated" } }
+                    );
+                } else if (status === "rejected") {
+                    await foodsCollection.updateOne(
+                        { _id: new ObjectId(request.foodId) },
+                        { $set: { food_status: "Available" } }
                     );
                 }
 
@@ -175,6 +179,7 @@ async function run() {
                 res.status(500).json({ success: false, message: "Server error while updating food request" });
             }
         });
+
 
         app.get('/food-requests/:foodId', async (req, res) => {
             try {
@@ -205,18 +210,29 @@ async function run() {
             try {
                 const id = req.params.id;
                 const query = { _id: new ObjectId(id) };
+
+                const request = await foodRequestsCollection.findOne(query);
+                if (!request) {
+                    return res.status(404).json({ success: false, message: "Request not found" });
+                }
+
                 const result = await foodRequestsCollection.deleteOne(query);
 
-                if (result.deletedCount > 0) {
-                    res.send({ success: true, deletedCount: result.deletedCount });
+                if (result.deletedCount > 0 && request.foodId) {
+                    await foodsCollection.updateOne(
+                        { _id: new ObjectId(request.foodId) },
+                        { $set: { food_status: "Available" } }
+                    );
+                    res.json({ success: true, message: "Request deleted and food made available again" });
                 } else {
-                    res.status(404).send({ success: false, message: "Request not found" });
+                    res.status(404).json({ success: false, message: "Failed to delete request" });
                 }
             } catch (error) {
                 console.error("Error deleting request:", error);
-                res.status(500).send({ success: false, message: "Internal server error" });
+                res.status(500).json({ success: false, message: "Internal server error" });
             }
         });
+
 
         app.get('/', (req, res) => {
             res.send("PlateShare Server is running successfully!");
