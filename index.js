@@ -32,124 +32,50 @@ async function run() {
 
         const db = client.db('PlateShareDB');
         const foodsCollection = db.collection('foods');
+        const foodRequestsCollection = db.collection('foodRequests');
 
         app.get('/foods', async (req, res) => {
-            try {
-                const result = await foodsCollection.find().toArray();
-                res.status(200).json(result);
-            } catch (error) {
-                console.error('Error fetching foods:', error);
-                res.status(500).json({ message: 'Error fetching foods' });
-            }
+            const result = await foodsCollection.find().toArray();
+            res.send(result);
         });
 
-        app.get('/my-foods', async (req, res) => {
+        app.post('/food-requests', async (req, res) => {
             try {
-                const email = req.query.email;
-                if (!email) {
-                    return res.status(400).json({ message: 'Missing email query parameter' });
+                const requestData = req.body;
+                if (!requestData.requesterEmail || !requestData.foodId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Missing requesterEmail or foodId",
+                    });
                 }
 
-                const result = await foodsCollection.find({ donator_email: email }).toArray();
-                res.status(200).json(result);
-            } catch (error) {
-                console.error('Error fetching user foods:', error);
-                res.status(500).json({ message: 'Error fetching user foods' });
-            }
-        });
-
-        app.get('/foods/:id', async (req, res) => {
-            try {
-                const { id } = req.params;
-                const query = { _id: new ObjectId(id) };
-                const result = await foodsCollection.findOne(query);
-
-                if (!result) {
-                    return res.status(404).json({ message: 'Food not found' });
-                }
-
-                res.status(200).json(result);
-            } catch (error) {
-                console.error('Error fetching food by ID:', error);
-                res.status(500).json({ message: 'Error fetching food by ID' });
-            }
-        });
-
-        app.post('/foods', async (req, res) => {
-            try {
-                const foodData = req.body;
-                if (!foodData.food_name || !foodData.food_image || !foodData.donator_email) {
-                    return res.status(400).json({ message: 'Missing required fields' });
-                }
-
-                const result = await foodsCollection.insertOne(foodData);
+                const result = await foodRequestsCollection.insertOne(requestData);
                 res.status(201).json({
                     success: true,
-                    message: 'Food added successfully',
+                    message: "Food request submitted successfully",
                     insertedId: result.insertedId,
                 });
             } catch (error) {
-                console.error('Error adding food:', error);
-                res.status(500).json({ message: 'Error adding food' });
+                console.error("Error submitting request:", error);
+                res.status(500).json({ success: false, message: "Error submitting request" });
             }
         });
 
-        app.put("/foods/:id", async (req, res) => {
+        app.get('/food-requests', async (req, res) => {
             try {
-                const id = req.params.id;
-                const updatedData = req.body;
-
-                const result = await foodsCollection.updateOne(
-                    { _id: new ObjectId(id) },
-                    { $set: updatedData }
-                );
-
-                if (result.matchedCount === 0) {
-                    return res.status(404).json({ success: false, message: "Food not found" });
+                const email = req.query.email;
+                if (!email) {
+                    return res.status(400).json({ success: false, message: "Missing email parameter" });
                 }
 
-                if (result.modifiedCount === 0) {
-                    return res.status(200).json({ success: true, message: "No changes made" });
-                }
+                const result = await foodRequestsCollection
+                    .find({ requesterEmail: email })
+                    .toArray();
 
-                res.status(200).json({ success: true, message: "Food updated successfully" });
+                res.status(200).json(result);
             } catch (error) {
-                console.error("Error updating food:", error);
-                res.status(500).json({ success: false, message: "Error updating food" });
-            }
-        });
-
-        app.delete("/foods/:id", async (req, res) => {
-            try {
-                const id = req.params.id;
-                const result = await foodsCollection.deleteOne({ _id: new ObjectId(id) });
-
-                if (result.deletedCount === 0) {
-                    return res.status(404).json({ success: false, message: "Food not found" });
-                }
-
-                res.status(200).json({ success: true, message: "Food deleted successfully" });
-            } catch (error) {
-                console.error("Error deleting food:", error);
-                res.status(500).json({ success: false, message: "Error deleting food" });
-            }
-        });
-
-        app.get('/featured-foods', async (req, res) => {
-            try {
-                const foods = await foodsCollection.find().toArray();
-                const featuredFoods = foods
-                    .map(food => ({
-                        ...food,
-                        serves: parseInt(food.food_quantity.match(/\d+/)?.[0] || 0),
-                    }))
-                    .sort((a, b) => b.serves - a.serves)
-                    .slice(0, 6);
-
-                res.status(200).json(featuredFoods);
-            } catch (error) {
-                console.error('Error fetching featured foods:', error);
-                res.status(500).json({ message: 'Error fetching featured foods' });
+                console.error("Error fetching requests:", error);
+                res.status(500).json({ success: false, message: "Error fetching requests" });
             }
         });
 
